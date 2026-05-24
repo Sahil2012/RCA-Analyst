@@ -1,6 +1,30 @@
-node_modules/
+
 dist/
-.env
-.env.local
-*.log
+
+# Dependencies
+**/node_modules/
+
+# Secrets
+**/.env
+**/.env.local
+
+# Kubernetes secret files (specific — keep full path)
+workload-services/k8s-both/k8s/01-secret-api-service.yaml
+workload-services/k8s-both/k8s/01-secret-crud-service.yaml
+
+# GCP
+gcloud-service-key.json
+*.json.key
+
+# OS
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
