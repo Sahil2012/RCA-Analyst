@@ -10,6 +10,7 @@
   "dependencies": {
     "@google-cloud/logging": "^11.0.0",
     "@google-cloud/monitoring": "^4.0.0",
+    "@google-cloud/pubsub": "^4.9.0",
     "dotenv": "^16.4.0",
     "zod": "^3.23.0"
   },
