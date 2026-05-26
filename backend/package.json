@@ -23,6 +23,7 @@
     "@google-cloud/pubsub": "^4.9.0",
     "@langchain/anthropic": "^0.3.0",
     "@langchain/core": "^0.3.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@prisma/client": "^6.0.0",
     "@supabase/supabase-js": "^2.47.0",
     "dotenv": "^16.4.0",
