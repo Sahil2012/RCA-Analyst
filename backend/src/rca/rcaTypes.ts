@@ -48,13 +48,24 @@ export const RemediationActionInputSchema = z.object({
   priority:            z.nativeEnum($Enums.ActionPriority),
   confidenceScore:     z.number().min(0).max(1),
   automationSupported: z.boolean(),
+  blastRadius:         z.string().min(1),
+  downtimeRisk:        z.string().min(1),
+  rollback:            z.string().min(1),
+  confidenceLevel:     z.enum(['HIGH', 'MEDIUM', 'LOW']),
 })
 
 export type RemediationActionInput = z.infer<typeof RemediationActionInputSchema>
 
+export const FiveWhySchema = z.object({
+  question: z.string().min(1),
+  answer:   z.string().min(1),
+})
+
 export const AnalysisOutputSchema = z.object({
   rootCause:          z.string().min(1),
   confidenceScore:    z.number().min(0).max(1),
+  fiveWhys:           z.array(FiveWhySchema).min(1),
+  symptomDiagram:     z.string().min(1),
   remediationActions: z.array(RemediationActionInputSchema).min(1),
 })
 

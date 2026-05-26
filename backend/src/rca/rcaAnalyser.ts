@@ -17,6 +17,24 @@ const TOOL_SCHEMA = {
       type:        'number',
       description: 'Confidence in the analysis, 0.0 to 1.0',
     },
+    fiveWhys: {
+      type:        'array',
+      description: '5-Whys analysis drilling from observable symptom to systemic root cause. Exactly 5 items.',
+      minItems:    5,
+      maxItems:    5,
+      items: {
+        type: 'object',
+        properties: {
+          question: { type: 'string', description: 'The "Why" question at this level' },
+          answer:   { type: 'string', description: 'Evidence-based answer from logs/metrics' },
+        },
+        required: ['question', 'answer'],
+      },
+    },
+    symptomDiagram: {
+      type:        'string',
+      description: 'Mermaid flowchart (graph TD) tracing root cause → intermediate causes → observable symptoms',
+    },
     remediationActions: {
       type:     'array',
       minItems: 1,
@@ -29,12 +47,16 @@ const TOOL_SCHEMA = {
           priority:            { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] },
           confidenceScore:     { type: 'number' },
           automationSupported: { type: 'boolean' },
+          blastRadius:         { type: 'string', description: 'Who/what is affected when this action is applied' },
+          downtimeRisk:        { type: 'string', description: 'Expected downtime or disruption during remediation' },
+          rollback:            { type: 'string', description: 'How to undo this action if it causes issues' },
+          confidenceLevel:     { type: 'string', enum: ['HIGH', 'MEDIUM', 'LOW'] },
         },
-        required: ['actionTitle', 'actionDescription', 'actionType', 'priority', 'confidenceScore', 'automationSupported'],
+        required: ['actionTitle', 'actionDescription', 'actionType', 'priority', 'confidenceScore', 'automationSupported', 'blastRadius', 'downtimeRisk', 'rollback', 'confidenceLevel'],
       },
     },
   },
-  required: ['rootCause', 'confidenceScore', 'remediationActions'],
+  required: ['rootCause', 'confidenceScore', 'fiveWhys', 'symptomDiagram', 'remediationActions'],
 } as const
 
 export class RcaAnalyser implements IRcaAnalyser {
@@ -93,4 +115,8 @@ export class RcaAnalyser implements IRcaAnalyser {
 
 const SYSTEM_PROMPT = `You are a senior SRE with deep expertise in Kubernetes, GCP, and distributed systems.
 Analyse the provided incident, logs, and metrics to identify the root cause and recommend remediation actions.
-Be precise, technical, and actionable. Base your analysis strictly on the provided evidence.`
+Be precise, technical, and actionable. Base your analysis strictly on the provided evidence.
+
+Perform a 5-Whys analysis with exactly 5 levels, drilling from the observable symptom down to the systemic root cause.
+Produce a Mermaid flowchart (graph TD) tracing the root cause through intermediate causes to observable symptoms — keep it to 4-6 nodes.
+For each remediation action provide: blast radius (who/what is affected), downtime risk (expected disruption), and rollback procedure (how to undo).`

@@ -16,6 +16,8 @@ export class PrismaRcaRepository implements IRcaRepository {
           attempts:        params.attempts,
           logWindowStart:  params.logWindowStart,
           logWindowEnd:    params.logWindowEnd,
+          fiveWhys:        params.fiveWhys,
+          symptomDiagram:  params.symptomDiagram,
           status:          $Enums.AnalysisStatus.PASSED,
         },
       })
@@ -29,6 +31,10 @@ export class PrismaRcaRepository implements IRcaRepository {
           priority:            action.priority,
           confidenceScore:     action.confidenceScore,
           automationSupported: action.automationSupported,
+          blastRadius:         action.blastRadius,
+          downtimeRisk:        action.downtimeRisk,
+          rollback:            action.rollback,
+          confidenceLevel:     action.confidenceLevel,
         })),
       })
 
@@ -51,6 +57,8 @@ export class PrismaRcaRepository implements IRcaRepository {
           attempts:        params.attempts,
           logWindowStart:  params.logWindowStart,
           logWindowEnd:    params.logWindowEnd,
+          fiveWhys:        params.fiveWhys,
+          symptomDiagram:  params.symptomDiagram,
           status:          $Enums.AnalysisStatus.LOW_CONFIDENCE,
         },
       })

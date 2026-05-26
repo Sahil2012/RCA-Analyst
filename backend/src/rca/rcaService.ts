@@ -79,6 +79,8 @@ export class RcaService implements IAnalysisTrigger {
           attempts:        attempt,
           logWindowStart:  windowStart,
           logWindowEnd:    windowEnd,
+          fiveWhys:        lastAnalysis.fiveWhys,
+          symptomDiagram:  lastAnalysis.symptomDiagram,
           actions:         lastAnalysis.remediationActions,
         })
         logger.info('RCA passed', { ...meta, attempt, judgeScore: lastJudgeScore })
@@ -97,6 +99,8 @@ export class RcaService implements IAnalysisTrigger {
       attempts:        this.options.maxAttempts,
       logWindowStart:  windowStart,
       logWindowEnd:    windowEnd,
+      fiveWhys:        lastAnalysis?.fiveWhys,
+      symptomDiagram:  lastAnalysis?.symptomDiagram,
     })
 
     logger.warn('RCA exhausted all attempts', { ...meta, finalJudgeScore: lastJudgeScore })

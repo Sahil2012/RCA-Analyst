@@ -99,20 +99,22 @@ model Incident {
 }
 
 model IncidentAnalysis {
-  id             String         @id @default(uuid())
-  incidentId     String
-  rootCause      String
+  id              String         @id @default(uuid())
+  incidentId      String
+  rootCause       String
   confidenceScore Float
-  judgeScore     Float
-  judgeFeedback  String?
-  attempts       Int            @default(1)
-  generatedBy    GeneratedBy    @default(AI)
-  logSource      String?
-  logQuery       String?
-  logWindowStart DateTime?
-  logWindowEnd   DateTime?
-  status         AnalysisStatus @default(PENDING)
-  createdAt      DateTime       @default(now())
+  judgeScore      Float
+  judgeFeedback   String?
+  attempts        Int            @default(1)
+  generatedBy     GeneratedBy    @default(AI)
+  logSource       String?
+  logQuery        String?
+  logWindowStart  DateTime?
+  logWindowEnd    DateTime?
+  fiveWhys        Json?
+  symptomDiagram  String?
+  status          AnalysisStatus @default(PENDING)
+  createdAt       DateTime       @default(now())
 
   incident       Incident             @relation(fields: [incidentId], references: [id])
   actions        RemediationAction[]
@@ -129,6 +131,10 @@ model RemediationAction {
   priority            ActionPriority
   confidenceScore     Float
   automationSupported Boolean         @default(false)
+  blastRadius         String?
+  downtimeRisk        String?
+  rollback            String?
+  confidenceLevel     String?
   executionStatus     ExecutionStatus @default(PENDING)
   executedAt          DateTime?
   createdAt           DateTime        @default(now())

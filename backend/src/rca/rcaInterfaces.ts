@@ -34,6 +34,8 @@ export type PersistPassedParams = {
   attempts:        number
   logWindowStart:  Date
   logWindowEnd:    Date
+  fiveWhys:        { question: string; answer: string }[]
+  symptomDiagram:  string
   actions:         RemediationActionInput[]
 }
 
@@ -46,6 +48,8 @@ export type PersistLowConfidenceParams = {
   attempts:        number
   logWindowStart:  Date
   logWindowEnd:    Date
+  fiveWhys?:       { question: string; answer: string }[]
+  symptomDiagram?: string
 }
 
 export interface IRcaLogFetcher {
