@@ -45,3 +45,7 @@ export type ProcessOutcome = 'duplicate' | 'false_positive' | 'created'
 export interface IIncidentService {
   process(event: IncidentEvent): Promise<Result<ProcessOutcome>>
 }
+
+export interface IAnalysisTrigger {
+  analyze(incident: DomainIncident): void
+}

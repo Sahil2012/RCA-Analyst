@@ -1,6 +1,7 @@
 import { logger } from '../shared/logger'
 import { Result, ok, err } from '../shared/types'
 import {
+  IAnalysisTrigger,
   IIncidentDedup,
   IIncidentFalsePositive,
   IIncidentRepository,
@@ -11,9 +12,10 @@ import { IncidentEvent } from './incidentTypes'
 
 export class IncidentService implements IIncidentService {
   constructor(
-    private readonly dedup:         IIncidentDedup,
-    private readonly falsePositive: IIncidentFalsePositive,
-    private readonly repo:          IIncidentRepository,
+    private readonly dedup:              IIncidentDedup,
+    private readonly falsePositive:      IIncidentFalsePositive,
+    private readonly repo:               IIncidentRepository,
+    private readonly analysisTrigger?:   IAnalysisTrigger,
   ) {}
 
   async process(event: IncidentEvent): Promise<Result<ProcessOutcome>> {
@@ -35,6 +37,7 @@ export class IncidentService implements IIncidentService {
       // 3. Persist as OPEN
       const incident = await this.repo.create(event)
       this.dedup.markSeen(event)
+      this.analysisTrigger?.analyze(incident)
       logger.info('Incident created', { ...meta, incidentId: incident.id })
 
       return ok('created')

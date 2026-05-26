@@ -15,12 +15,23 @@ const ConfigSchema = z.object({
   PUBSUB_SUBSCRIPTION:    z.string().min(1),
 
   // Anthropic
-  ANTHROPIC_API_KEY:      z.string().min(1),
+  ANTHROPIC_API_KEY:           z.string().min(1),
+  ANTHROPIC_MODEL:             z.string().default('claude-sonnet-4-6'),
+  RCA_LLM_MAX_TOKENS:          z.coerce.number().default(2048),
+
+  // RCA pipeline tuning
+  RCA_MAX_ATTEMPTS:            z.coerce.number().int().min(1).default(3),
+  RCA_JUDGE_THRESHOLD:         z.coerce.number().min(0).max(1).default(0.7),
+  RCA_LOG_WINDOW_BEFORE_MIN:   z.coerce.number().default(5),
+  RCA_LOG_WINDOW_AFTER_MIN:    z.coerce.number().default(10),
 
   // LangSmith (optional)
-  LANGCHAIN_API_KEY:      z.string().optional(),
-  LANGCHAIN_PROJECT:      z.string().default('rca-analyst'),
-  LANGCHAIN_TRACING_V2:   z.coerce.boolean().default(false),
+  LANGCHAIN_API_KEY:           z.string().optional(),
+  LANGCHAIN_PROJECT:           z.string().default('rca-analyst'),
+  LANGCHAIN_TRACING_V2:        z.coerce.boolean().default(false),
+
+  // MCP server
+  MCP_PORT:                    z.coerce.number().default(3002),
 
   // Email (optional — alerts disabled if absent)
   SMTP_HOST:              z.string().optional(),
