@@ -1,21 +1,25 @@
 import "dotenv/config";
 import { Server } from "node:http";
-import { prisma, logger, startHealthServer } from "./shared";
+import { prisma, config, logger, startHealthServer } from "./shared";
 import { startIncidentConsumer } from "./incidents";
+import { startMcpServer } from "./mcp/mcpServer";
 
 let healthServer: Server | undefined;
+let mcpServer:    Server | undefined;
 
 function main() {
   healthServer = startHealthServer();
+  mcpServer    = startMcpServer(prisma, config.MCP_PORT);
   logger.info("Starting RCA Analyst backend");
   startIncidentConsumer();
 }
 
 async function shutdown(signal: string) {
   logger.info(`${signal} received — shutting down gracefully`);
-  await new Promise<void>(
-    (resolve) => healthServer?.close(() => resolve()) ?? resolve(),
-  );
+  await Promise.all([
+    new Promise<void>((resolve) => healthServer?.close(() => resolve()) ?? resolve()),
+    new Promise<void>((resolve) => mcpServer?.close(() => resolve())    ?? resolve()),
+  ]);
   await prisma.$disconnect();
   process.exit(0);
 }
