@@ -30,6 +30,9 @@ const ConfigSchema = z.object({
   LANGCHAIN_PROJECT:           z.string().default('rca-analyst'),
   LANGCHAIN_TRACING_V2:        z.coerce.boolean().default(false),
 
+  // API server
+  API_PORT:                    z.coerce.number().default(3000),
+
   // MCP server
   MCP_PORT:                    z.coerce.number().default(3002),
 
