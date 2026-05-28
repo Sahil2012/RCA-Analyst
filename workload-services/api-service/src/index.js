@@ -13,6 +13,7 @@ const dogsRoutes = require("./routes/dogs");
 const nasaRoutes = require("./routes/nasa");
 const moviesRoutes = require("./routes/movies");
 const exchangeRoutes = require("./routes/exchange");
+const testRoutes     = require("./routes/test");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -58,6 +59,7 @@ app.use("/api/dogs", dogsRoutes);
 app.use("/api/nasa", nasaRoutes);
 app.use("/api/movies", moviesRoutes);
 app.use("/api/exchange", exchangeRoutes);
+app.use("/api/test",    testRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {

@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const usersRouter = require("./routes/users");
+const testRouter  = require("./routes/test");
 const logger = require("./utils/logger");
 
 const app = express();
@@ -50,6 +51,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/users", usersRouter);
+app.use("/api/test",  testRouter);
 
 // 404 handler
 app.use((req, res) => {
