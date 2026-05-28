@@ -1,6 +1,7 @@
 import monitoring_v3 from '@google-cloud/monitoring'
 import { config } from '../shared/config'
 import { Anomaly, AnomalyType } from '../shared/index'
+import { logFetcher } from '../logs/index'
 
 const metricsClient = new monitoring_v3.MetricServiceClient({
   projectId: config.GCP_PROJECT_ID,
@@ -117,64 +118,44 @@ export class MetricsPoller {
 
   /**
    * Query error rate from logs
+   * Counts ERROR severity logs in the last 60 seconds
    * Returns errors per second
    */
-//   async getErrorRate(
-//     service: string,
-//     namespace: string,
-//   ): Promise<number | null> {
-//     try {
-//       const projectName = metricsClient.projectPath(config.GCP_PROJECT_ID)
+  async getErrorRate(
+    service: string,
+    namespace: string,
+  ): Promise<number | null> {
+    try {
+      const endTime = new Date()
+      const startTime = new Date(endTime.getTime() - 60000) // Last 60 seconds
 
-//       // Count ERROR level logs in the last 60 seconds
-//       const filter = `
-//   resource.type="k8s_container"
-//   AND resource.labels.container_name="${service}"
-//   AND resource.labels.namespace_name="${namespace}"
-// `.trim()
+      // Fetch ERROR logs using Cloud Logging API
+      // Using '*' for pod since we want service-level error rate
+      const logs = await logFetcher.fetchLogs(
+        service,
+        namespace,
+        '*',
+        startTime,
+        endTime,
+      )
 
-//       const request = {
-//         name: projectName,
-//         filter,
-//         interval: {
-//           endTime: { seconds: Math.floor(Date.now() / 1000) },
-//           startTime: {
-//             seconds: Math.floor((Date.now() - 60000) / 1000),
-//           },
-//         },
-//       }
+      // Count only ERROR severity logs
+      const errorCount = logs.filter(
+        (log) => log.severity === 'ERROR' || log.severity === 'ERROR',
+      ).length
 
-//       const [timeSeries] = await metricsClient.listTimeSeries(request)
+      // Calculate errors per second (60 second window)
+      const errorsPerSecond = errorCount / 60
 
-//       if (!timeSeries || timeSeries.length === 0) {
-//         return 0
-//       }
-
-//       const points = timeSeries[0].points || []
-//       if (points.length === 0) return 0
-
-//       // Estimate errors per second (60 second window)
-//       const totalErrors = points.reduce((sum: number, p: any) => {
-//         return sum + ((p.value as any)?.int64Value || 0)
-//       }, 0)
-
-//       return totalErrors / 60
-//     } catch (error) {
-//       console.error(`Error fetching error rate for ${service}:`, error)
-//       return null
-//     }
-//   }
-
-async getErrorRate(
-  service: string,
-  namespace: string,
-): Promise<number | null> {
-  // TODO:
-  // Move error-rate calculation to Cloud Logging API
-  // using logging.getEntries()
-
-  return 0
-}
+      return errorsPerSecond
+    } catch (error) {
+      console.error(
+        `Error fetching error rate for ${service}/${namespace}:`,
+        error,
+      )
+      return null
+    }
+  }
 
   /**
    * Detect anomalies for a pod
