@@ -1,5 +1,6 @@
 import { Logging } from '@google-cloud/logging'
 import { config } from '../shared/config'
+import { logger } from '../shared/logger'
 
 const logging = new Logging({
   projectId: config.GCP_PROJECT_ID,
@@ -26,47 +27,48 @@ export class LogFetcher {
     endTime: Date,
   ): Promise<LogEntry[]> {
     try {
-      // Format timestamps for API
       const startTimeStr = startTime.toISOString()
-      const endTimeStr = endTime.toISOString()
+      const endTimeStr   = endTime.toISOString()
 
-      // Build filter for ERROR and WARN logs
-      const filter = `
-        resource.type="k8s_pod"
-        AND resource.labels.pod_name="${pod}"
-        AND resource.labels.namespace_name="${namespace}"
-        AND (severity="ERROR" OR severity="WARNING")
-        AND timestamp>="${startTimeStr}"
-        AND timestamp<="${endTimeStr}"
-      `.trim()
+      // k8s_container is the correct resource type for GKE workload logs.
+      // When pod === '*' (service-level error rate check) omit pod filter and
+      // match by container_name instead — Cloud Logging has no wildcard syntax.
+      const podFilter = pod !== '*'
+        ? `AND resource.labels.pod_name="${pod}"`
+        : `AND resource.labels.container_name="${service}"`
 
-      // Use the logging library's getEntries method
+      const filter = [
+        'resource.type="k8s_container"',
+        `resource.labels.namespace_name="${namespace}"`,
+        podFilter,
+        '(severity="ERROR" OR severity="WARNING")',
+        `timestamp>="${startTimeStr}"`,
+        `timestamp<="${endTimeStr}"`,
+      ].join(' AND ')
+
       const [entries] = await (logging as any).getEntries({
         filter,
         pageSize: 1000,
         autoPaginate: false,
       })
 
-      if (!entries || entries.length === 0) {
-        return []
-      }
+      if (!entries || entries.length === 0) return []
 
       return entries
         .map((entry: any) => {
-          const metadata = entry.metadata || {}
+          const metadata  = entry.metadata || {}
           const timestamp = metadata.timestamp ? new Date(metadata.timestamp) : new Date()
-
           return {
             timestamp,
             severity: metadata.severity || 'UNKNOWN',
-            message: entry.data || JSON.stringify(entry),
+            message:  entry.data || JSON.stringify(entry),
             resource: `${metadata.resource?.type}/${metadata.resource?.labels?.pod_name}`,
-            labels: metadata.resource?.labels || {},
+            labels:   metadata.resource?.labels || {},
           }
         })
         .sort((a: LogEntry, b: LogEntry) => a.timestamp.getTime() - b.timestamp.getTime())
     } catch (error) {
-      console.error(`Error fetching logs for ${pod}:`, error)
+      logger.error(`Error fetching logs for ${service}/${pod}`, (error as Error).message)
       return []
     }
   }

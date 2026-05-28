@@ -7,8 +7,10 @@ const WatcherConfigSchema = z.object({
   GCP_PROJECT_ID: z.string().min(1),
   GCP_CREDENTIALS_PATH: z.string().optional(),
 
-  // PubSub
-  PUBSUB_TOPIC: z.string().min(1),
+  // PubSub — one topic per severity tier
+  PUBSUB_TOPIC_HIGH:   z.string().default('incident-high'),
+  PUBSUB_TOPIC_MEDIUM: z.string().default('incident-medium'),
+  PUBSUB_TOPIC_LOW:    z.string().default('incident-low'),
 
   // Kubernetes
   KUBECONFIG: z.string().optional(),

@@ -1,6 +1,6 @@
 import monitoring_v3 from '@google-cloud/monitoring'
 import { config } from '../shared/config'
-import { Anomaly, AnomalyType } from '../shared/index'
+import { Anomaly } from '../shared/index'
 import { logFetcher } from '../logs/index'
 
 const metricsClient = new monitoring_v3.MetricServiceClient({
@@ -13,7 +13,7 @@ export class MetricsPoller {
    * Returns percentage (0-100)
    */
   async getCpuUtilization(
-    service: string,
+    _service: string,
     namespace: string,
     pod: string,
   ): Promise<number | null> {
@@ -68,7 +68,7 @@ export class MetricsPoller {
    * Returns percentage (0-100)
    */
   async getMemoryUtilization(
-    service: string,
+    _service: string,
     namespace: string,
     pod: string,
   ): Promise<number | null> {
@@ -157,56 +157,30 @@ export class MetricsPoller {
     }
   }
 
-  /**
-   * Detect anomalies for a pod
-   */
-  async detectAnomalies(
-    service: string,
-    namespace: string,
-    pod: string,
-  ): Promise<Anomaly[]> {
+  // Pod-level: CPU + memory (requires K8s pod name)
+  async detectPodAnomalies(service: string, namespace: string, pod: string): Promise<Anomaly[]> {
     const anomalies: Anomaly[] = []
 
-    // Check CPU
     const cpu = await this.getCpuUtilization(service, namespace, pod)
     if (cpu !== null && cpu > 80) {
-      anomalies.push({
-        service,
-        namespace,
-        pod,
-        type: 'HIGH_CPU' as AnomalyType,
-        value: cpu,
-        threshold: 80,
-        timestamp: new Date(),
-      })
+      anomalies.push({ service, namespace, pod, type: 'HIGH_CPU' , value: cpu, threshold: 80, timestamp: new Date() })
     }
 
-    // Check Memory
     const memory = await this.getMemoryUtilization(service, namespace, pod)
     if (memory !== null && memory > 85) {
-      anomalies.push({
-        service,
-        namespace,
-        pod,
-        type: 'HIGH_MEMORY' as AnomalyType,
-        value: memory,
-        threshold: 85,
-        timestamp: new Date(),
-      })
+      anomalies.push({ service, namespace, pod, type: 'HIGH_MEMORY' , value: memory, threshold: 85, timestamp: new Date() })
     }
 
-    // Check Error Rate
+    return anomalies
+  }
+
+  // Service-level: error rate from Cloud Logging (no pod name needed — always runs)
+  async detectErrorRateAnomalies(service: string, namespace: string): Promise<Anomaly[]> {
+    const anomalies: Anomaly[] = []
+
     const errorRate = await this.getErrorRate(service, namespace)
     if (errorRate !== null && errorRate > 5) {
-      anomalies.push({
-        service,
-        namespace,
-        pod,
-        type: 'HIGH_ERROR_RATE' as AnomalyType,
-        value: errorRate,
-        threshold: 5,
-        timestamp: new Date(),
-      })
+      anomalies.push({ service, namespace, pod: service, type: 'HIGH_ERROR_RATE' , value: errorRate, threshold: 5, timestamp: new Date() })
     }
 
     return anomalies

@@ -11,19 +11,23 @@ export const AnomalyTypeSchema = z.enum([
 
 export type AnomalyType = z.infer<typeof AnomalyTypeSchema>
 
-export const IncidentSourceSchema = z.enum(['GCP_MONITORING', 'K8S_MONITORING', 'LOG_ANALYSIS'])
+// Must match backend Prisma IncidentSource enum
+export const IncidentSourceSchema = z.enum(['GCP_MONITORING', 'GCP_LOGGING', 'MANUAL'])
 export type IncidentSource = z.infer<typeof IncidentSourceSchema>
 
 export const SeveritySchema = z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
 export type Severity = z.infer<typeof SeveritySchema>
 
-// RCA Pipeline incident schema - aligned with backend expectations
+// Must match backend Prisma IncidentType enum — POD_RESTART is watcher-internal, published as POD_CRASH
+export const IncidentTypeSchema = z.enum(['HIGH_CPU', 'HIGH_MEMORY', 'HIGH_ERROR_RATE', 'POD_CRASH', 'LATENCY_SPIKE'])
+export type IncidentType = z.infer<typeof IncidentTypeSchema>
+
 export const IncidentEventSchema = z.object({
   serviceName: z.string().min(1),
   namespace: z.string().min(1),
   podName: z.string().optional(),
   severity: SeveritySchema,
-  type: AnomalyTypeSchema, // Use AnomalyType directly (HIGH_CPU, HIGH_MEMORY, HIGH_ERROR_RATE, POD_CRASH, POD_RESTART)
+  type: IncidentTypeSchema,
   occurrences: z.number().int().positive(),
   source: IncidentSourceSchema.default('GCP_MONITORING'),
   correlationId: z.string().optional(),
@@ -83,19 +87,21 @@ export const IncidentRules = {
   },
 }
 
-// Map AnomalyType to incident source
 export const mapAnomalyToIncidentSource = (anomalyType: AnomalyType): IncidentSource => {
   switch (anomalyType) {
-    case 'HIGH_CPU':
-    case 'HIGH_MEMORY':
-    case 'HIGH_ERROR_RATE':
-      return 'GCP_MONITORING'
     case 'POD_CRASH':
     case 'POD_RESTART':
-      return 'K8S_MONITORING'
+      return 'GCP_MONITORING' // K8s events surfaced via GCP Monitoring
+    case 'HIGH_ERROR_RATE':
+      return 'GCP_LOGGING'
     default:
       return 'GCP_MONITORING'
   }
+}
+
+// POD_RESTART is watcher-internal; publish as POD_CRASH to match backend IncidentType
+export const mapAnomalyToIncidentType = (anomalyType: AnomalyType): IncidentType => {
+  return anomalyType === 'POD_RESTART' ? 'POD_CRASH' : anomalyType
 }
 
 // Determine severity based on anomaly type and value
