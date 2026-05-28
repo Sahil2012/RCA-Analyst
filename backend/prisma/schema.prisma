@@ -8,7 +8,69 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ─── Enums ────────────────────────────────────────────────────────────────────
+model Incident {
+  id            String             @id @default(uuid())
+  serviceName   String
+  namespace     String
+  podName       String?
+  severity      Severity
+  type          IncidentType
+  status        IncidentStatus     @default(OPEN)
+  occurrences   Int                @default(1)
+  source        IncidentSource     @default(GCP_MONITORING)
+  correlationId String?
+  occurredAt    DateTime
+  resolvedAt    DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  analyses      IncidentAnalysis[]
+
+  @@map("incidents")
+}
+
+model IncidentAnalysis {
+  id              String              @id @default(uuid())
+  incidentId      String
+  rootCause       String
+  confidenceScore Float
+  judgeScore      Float
+  judgeFeedback   String?
+  attempts        Int                 @default(1)
+  generatedBy     GeneratedBy         @default(AI)
+  logSource       String?
+  logQuery        String?
+  logWindowStart  DateTime?
+  logWindowEnd    DateTime?
+  status          AnalysisStatus      @default(PENDING)
+  createdAt       DateTime            @default(now())
+  fiveWhys        Json?
+  symptomDiagram  String?
+  incident        Incident            @relation(fields: [incidentId], references: [id])
+  actions         RemediationAction[]
+
+  @@map("incident_analyses")
+}
+
+model RemediationAction {
+  id                  String           @id @default(uuid())
+  analysisId          String
+  actionTitle         String
+  actionDescription   String
+  actionType          ActionType
+  priority            ActionPriority
+  confidenceScore     Float
+  automationSupported Boolean          @default(false)
+  executionStatus     ExecutionStatus  @default(PENDING)
+  executedAt          DateTime?
+  createdAt           DateTime         @default(now())
+  blastRadius         String?
+  confidenceLevel     String?
+  downtimeRisk        String?
+  rollback            String?
+  analysis            IncidentAnalysis @relation(fields: [analysisId], references: [id])
+
+  @@map("remediation_actions")
+}
 
 enum Severity {
   LOW
@@ -73,73 +135,4 @@ enum ExecutionStatus {
   EXECUTED
   FAILED
   SKIPPED
-}
-
-// ─── Models ───────────────────────────────────────────────────────────────────
-
-model Incident {
-  id            String          @id @default(uuid())
-  serviceName   String
-  namespace     String
-  podName       String?
-  severity      Severity
-  type          IncidentType
-  status        IncidentStatus  @default(OPEN)
-  occurrences   Int             @default(1)
-  source        IncidentSource  @default(GCP_MONITORING)
-  correlationId String?
-  occurredAt    DateTime
-  resolvedAt    DateTime?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-
-  analyses      IncidentAnalysis[]
-
-  @@map("incidents")
-}
-
-model IncidentAnalysis {
-  id              String         @id @default(uuid())
-  incidentId      String
-  rootCause       String
-  confidenceScore Float
-  judgeScore      Float
-  judgeFeedback   String?
-  attempts        Int            @default(1)
-  generatedBy     GeneratedBy    @default(AI)
-  logSource       String?
-  logQuery        String?
-  logWindowStart  DateTime?
-  logWindowEnd    DateTime?
-  fiveWhys        Json?
-  symptomDiagram  String?
-  status          AnalysisStatus @default(PENDING)
-  createdAt       DateTime       @default(now())
-
-  incident       Incident             @relation(fields: [incidentId], references: [id])
-  actions        RemediationAction[]
-
-  @@map("incident_analyses")
-}
-
-model RemediationAction {
-  id                  String          @id @default(uuid())
-  analysisId          String
-  actionTitle         String
-  actionDescription   String
-  actionType          ActionType
-  priority            ActionPriority
-  confidenceScore     Float
-  automationSupported Boolean         @default(false)
-  blastRadius         String?
-  downtimeRisk        String?
-  rollback            String?
-  confidenceLevel     String?
-  executionStatus     ExecutionStatus @default(PENDING)
-  executedAt          DateTime?
-  createdAt           DateTime        @default(now())
-
-  analysis            IncidentAnalysis @relation(fields: [analysisId], references: [id])
-
-  @@map("remediation_actions")
 }

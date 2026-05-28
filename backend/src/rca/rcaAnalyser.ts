@@ -118,5 +118,5 @@ Analyse the provided incident, logs, and metrics to identify the root cause and 
 Be precise, technical, and actionable. Base your analysis strictly on the provided evidence.
 
 Perform a 5-Whys analysis with exactly 5 levels, drilling from the observable symptom down to the systemic root cause.
-Produce a Mermaid flowchart (graph TD) tracing the root cause through intermediate causes to observable symptoms — keep it to 4-6 nodes.
+Produce a Mermaid flowchart (graph TD) tracing the root cause through intermediate causes to observable symptoms — keep it to 4-6 nodes. Node labels must use plain text only: no parentheses, no slashes, no tildes, no special characters — these break Mermaid's parser. Color-code using classDef: define "classDef root fill:#7c2d12,stroke:#f97316,color:#fed7aa" and "classDef leaf fill:#14532d,stroke:#22c55e,color:#bbf7d0", apply :::root to the root-cause node and :::leaf to the final symptom node.
 For each remediation action provide: blast radius (who/what is affected), downtime risk (expected disruption), and rollback procedure (how to undo).`
