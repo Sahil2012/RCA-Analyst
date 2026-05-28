@@ -13,10 +13,100 @@ export interface LogEntry {
   labels: Record<string, string>
 }
 
+interface LogMetadata {
+  timestamp?: string
+  severity?: string
+  resource?: {
+    type?: string
+    labels?: Record<string, string>
+  }
+}
+
+// Configuration constants
+const INCIDENT_WINDOW_MINUTES = 5
+const MAX_PAGE_SIZE = 1000
+const MAX_ERROR_PATTERNS = 10
+const MAX_PATTERN_LENGTH = 100
+const LOG_FILTER_RESOURCE_TYPE = 'k8s_pod'
+const SUPPORTED_SEVERITIES = ['ERROR', 'WARNING']
+
 export class LogFetcher {
+  private readonly incidentWindowMs = INCIDENT_WINDOW_MINUTES * 60 * 1000
+  private readonly pageSize = MAX_PAGE_SIZE
+
+  /**
+   * Build a safe log filter query for Cloud Logging API
+   */
+  private buildLogFilter(
+    pod: string,
+    namespace: string,
+    startTime: Date,
+    endTime: Date,
+  ): string {
+    const startTimeStr = startTime.toISOString()
+    const endTimeStr = endTime.toISOString()
+    const severityFilter = SUPPORTED_SEVERITIES.map((s) => `severity="${s}"`).join(' OR ')
+
+    return [
+      `resource.type="${LOG_FILTER_RESOURCE_TYPE}"`,
+      `resource.labels.pod_name="${pod}"`,
+      `resource.labels.namespace_name="${namespace}"`,
+      `(${severityFilter})`,
+      `timestamp>="${startTimeStr}"`,
+      `timestamp<="${endTimeStr}"`,
+    ].join('\n AND ')
+  }
+
+  /**
+   * Parse a raw log entry from Cloud Logging API
+   */
+  private parseLogEntry(entry: any): LogEntry {
+    const metadata: LogMetadata = entry.metadata || {}
+    const timestamp = metadata.timestamp ? new Date(metadata.timestamp) : new Date()
+    const podName = metadata.resource?.labels?.pod_name || 'unknown'
+    const resourceType = metadata.resource?.type || 'unknown'
+
+    return {
+      timestamp,
+      severity: metadata.severity || 'UNKNOWN',
+      message: entry.data || JSON.stringify(entry),
+      resource: `${resourceType}/${podName}`,
+      labels: metadata.resource?.labels || {},
+    }
+  }
+
+  /**
+   * Extract and normalize a message pattern for grouping
+   */
+  private extractMessagePattern(message: string): string {
+    return message.split('\n')[0].substring(0, MAX_PATTERN_LENGTH)
+  }
+
+  /**
+   * Validate input parameters
+   */
+  private validateInputs(
+    namespace: string,
+    pod: string,
+    startTime: Date,
+    endTime: Date,
+  ): void {
+    if (!namespace?.trim()) throw new Error('namespace is required')
+    if (!pod?.trim()) throw new Error('pod is required')
+    if (!(startTime instanceof Date) || isNaN(startTime.getTime())) {
+      throw new Error('startTime must be a valid Date')
+    }
+    if (!(endTime instanceof Date) || isNaN(endTime.getTime())) {
+      throw new Error('endTime must be a valid Date')
+    }
+    if (startTime >= endTime) {
+      throw new Error('startTime must be before endTime')
+    }
+  }
+
   /**
    * Fetch logs for a service/pod within a time window
-   * Filters for ERROR and WARN only
+   * Filters for ERROR and WARNING severity only
    */
   async fetchLogs(
     service: string,
@@ -26,54 +116,34 @@ export class LogFetcher {
     endTime: Date,
   ): Promise<LogEntry[]> {
     try {
-      // Format timestamps for API
-      const startTimeStr = startTime.toISOString()
-      const endTimeStr = endTime.toISOString()
+      this.validateInputs(namespace, pod, startTime, endTime)
 
-      // Build filter for ERROR and WARN logs
-      const filter = `
-        resource.type="k8s_pod"
-        AND resource.labels.pod_name="${pod}"
-        AND resource.labels.namespace_name="${namespace}"
-        AND (severity="ERROR" OR severity="WARNING")
-        AND timestamp>="${startTimeStr}"
-        AND timestamp<="${endTimeStr}"
-      `.trim()
+      const filter = this.buildLogFilter(pod, namespace, startTime, endTime)
 
-      // Use the logging library's getEntries method
       const [entries] = await (logging as any).getEntries({
         filter,
-        pageSize: 1000,
+        pageSize: this.pageSize,
         autoPaginate: false,
       })
 
-      if (!entries || entries.length === 0) {
+      if (!entries?.length) {
         return []
       }
 
       return entries
-        .map((entry: any) => {
-          const metadata = entry.metadata || {}
-          const timestamp = metadata.timestamp ? new Date(metadata.timestamp) : new Date()
-
-          return {
-            timestamp,
-            severity: metadata.severity || 'UNKNOWN',
-            message: entry.data || JSON.stringify(entry),
-            resource: `${metadata.resource?.type}/${metadata.resource?.labels?.pod_name}`,
-            labels: metadata.resource?.labels || {},
-          }
-        })
+        .map((entry: any) => this.parseLogEntry(entry))
         .sort((a: LogEntry, b: LogEntry) => a.timestamp.getTime() - b.timestamp.getTime())
     } catch (error) {
-      console.error(`Error fetching logs for ${pod}:`, error)
+      console.error(
+        `Error fetching logs for ${pod} in ${namespace}:`,
+        error instanceof Error ? error.message : error,
+      )
       return []
     }
   }
 
   /**
-   * Fetch logs for incident investigation
-   * Returns structured log data for analysis
+   * Fetch logs for incident investigation (5 minutes before/after incident time)
    */
   async fetchIncidentLogs(
     service: string,
@@ -81,9 +151,12 @@ export class LogFetcher {
     pod: string,
     incidentTime: Date,
   ): Promise<LogEntry[]> {
-    // Fetch logs from 5 minutes before to 5 minutes after the incident
-    const startTime = new Date(incidentTime.getTime() - 5 * 60 * 1000)
-    const endTime = new Date(incidentTime.getTime() + 5 * 60 * 1000)
+    if (!(incidentTime instanceof Date) || isNaN(incidentTime.getTime())) {
+      throw new Error('incidentTime must be a valid Date')
+    }
+
+    const startTime = new Date(incidentTime.getTime() - this.incidentWindowMs)
+    const endTime = new Date(incidentTime.getTime() + this.incidentWindowMs)
 
     return this.fetchLogs(service, namespace, pod, startTime, endTime)
   }
@@ -95,15 +168,14 @@ export class LogFetcher {
     const patterns = new Map<string, number>()
 
     for (const log of logs) {
-      // Extract first line of message as pattern
-      const firstLine = log.message.split('\n')[0].substring(0, 100)
-      patterns.set(firstLine, (patterns.get(firstLine) || 0) + 1)
+      const pattern = this.extractMessagePattern(log.message)
+      patterns.set(pattern, (patterns.get(pattern) ?? 0) + 1)
     }
 
     return Array.from(patterns.entries())
       .map(([pattern, count]) => ({ pattern, count }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 10) // Top 10 patterns
+      .slice(0, MAX_ERROR_PATTERNS)
   }
 
   /**
@@ -116,12 +188,22 @@ export class LogFetcher {
     firstLog: Date | null
     lastLog: Date | null
   } {
+    if (logs.length === 0) {
+      return {
+        totalLogs: 0,
+        errorCount: 0,
+        warningCount: 0,
+        firstLog: null,
+        lastLog: null,
+      }
+    }
+
     return {
       totalLogs: logs.length,
       errorCount: logs.filter((l) => l.severity === 'ERROR').length,
       warningCount: logs.filter((l) => l.severity === 'WARNING').length,
-      firstLog: logs.length > 0 ? logs[0].timestamp : null,
-      lastLog: logs.length > 0 ? logs[logs.length - 1].timestamp : null,
+      firstLog: logs[0].timestamp,
+      lastLog: logs[logs.length - 1].timestamp,
     }
   }
 }
