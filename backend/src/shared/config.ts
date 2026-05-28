@@ -25,7 +25,7 @@ const ConfigSchema = z.object({
 
   // Gemini (required when LLM_PROVIDER=gemini)
   GEMINI_API_KEY:              z.string().optional(),
-  GEMINI_MODEL:                z.string().default('gemini-2.5-flash'),
+  GEMINI_MODEL:                z.string().default('gemini-1.5-flash'),
 
   RCA_LLM_MAX_TOKENS:          z.coerce.number().default(2048),
 

@@ -26,4 +26,5 @@ desktop.ini
 
 # Logs
 *.log
-logs/
+/logs/
+!watcher/src/logs/

@@ -34,8 +34,8 @@ export class LogFetcher {
       // When pod === '*' (service-level error rate check) omit pod filter and
       // match by container_name instead — Cloud Logging has no wildcard syntax.
       const podFilter = pod !== '*'
-        ? `AND resource.labels.pod_name="${pod}"`
-        : `AND resource.labels.container_name="${service}"`
+        ? `resource.labels.pod_name="${pod}"`
+        : `resource.labels.container_name="${service}"`
 
       const filter = [
         'resource.type="k8s_container"',

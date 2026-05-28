@@ -37,8 +37,12 @@ export class GeminiLlmClient implements ILlmClient {
 
       const result = await generateContent(req.userPrompt)
 
-      const parts = result.response.candidates?.[0]?.content?.parts ?? []
-      const fnCall = parts.find((p) => 'functionCall' in p && p.functionCall != null)?.functionCall
+      // Use SDK helper first, fall back to manual parts scan
+      const calls  = result.response.functionCalls?.() ?? []
+      const fnCall = calls[0]
+        ?? result.response.candidates?.[0]?.content?.parts
+            ?.find((p) => 'functionCall' in p && p.functionCall != null)
+            ?.functionCall
 
       if (!fnCall) return err(new Error('No function call in Gemini response'))
 
