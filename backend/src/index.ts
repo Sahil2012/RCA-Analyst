@@ -12,10 +12,13 @@ let closeConsumers: (() => Promise<void>) | undefined;
 
 function main() {
   logger.info("Starting RCA Analyst backend");
-  healthServer    = startHealthServer();
-  mcpServer       = startMcpServer(prisma, config.MCP_PORT);
-  apiServer       = startApiServer(prisma, config.API_PORT);
-  closeConsumers  = startIncidentConsumer();
+  healthServer = startHealthServer();
+  mcpServer    = startMcpServer(prisma, config.MCP_PORT);
+
+  const { stop, rcaService } = startIncidentConsumer();
+  closeConsumers = stop;
+
+  apiServer = startApiServer(prisma, config.API_PORT, rcaService);
 }
 
 function shutdown(signal: string): void {

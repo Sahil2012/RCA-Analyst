@@ -1,3 +1,4 @@
+import { traceable } from 'langsmith/traceable'
 import { DomainIncident, IAnalysisTrigger } from '../incidents/incidentInterfaces'
 import { logger } from '../shared/logger'
 import {
@@ -31,7 +32,11 @@ export class RcaService implements IAnalysisTrigger {
   ) {}
 
   analyze(incident: DomainIncident): void {
-    this.run(incident).catch(e => {
+    const pipeline = traceable(
+      () => this.run(incident),
+      { name: 'rca-pipeline', run_type: 'chain', metadata: { incidentId: incident.id, service: incident.serviceName } },
+    )
+    pipeline().catch(e => {
       logger.error('Unhandled RCA pipeline error', {
         incidentId: incident.id,
         error:      e instanceof Error ? e.message : String(e),

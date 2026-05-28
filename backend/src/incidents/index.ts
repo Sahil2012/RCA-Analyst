@@ -1,5 +1,6 @@
 import { prisma, config } from '../shared'
 import { buildRcaService } from '../rca'
+import { IAnalysisTrigger } from './incidentInterfaces'
 import { IncidentConsumer } from './incidentConsumer'
 import { IncidentDedup } from './incidentDedup'
 import { IncidentFalsePositive } from './incidentFalsePositive'
@@ -7,7 +8,7 @@ import { PrismaIncidentRepository } from './incidentRepository'
 import { IncidentService } from './incidentService'
 import { PubSubMessageQueue } from './pubsubMessageQueue'
 
-export function startIncidentConsumer(): () => Promise<void> {
+export function startIncidentConsumer(): { stop: () => Promise<void>; rcaService: IAnalysisTrigger } {
   const repo       = new PrismaIncidentRepository(prisma)
   const dedup      = new IncidentDedup(repo)
   const falsePos   = new IncidentFalsePositive(repo)
@@ -30,7 +31,8 @@ export function startIncidentConsumer(): () => Promise<void> {
     queues.push(queue)
   }
 
-  return () => Promise.all(queues.map(q => q.close())).then(() => {})
+  const stop = () => Promise.all(queues.map(q => q.close())).then(() => {})
+  return { stop, rcaService }
 }
 
 export type { IncidentEvent } from './incidentTypes'

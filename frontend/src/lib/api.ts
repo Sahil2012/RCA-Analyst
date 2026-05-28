@@ -24,8 +24,9 @@ export const getIncidents = (params?: { status?: IncidentStatus; limit?: number;
   return request<{ incidents: IncidentSummary[]; total: number }>(path)
 }
 
-export const getIncident  = (id: string) => request<IncidentDetail>(`/incidents/${id}`)
-export const getAnalysis  = (incidentId: string) => request<AnalysisReport>(`/incidents/${incidentId}/analysis`)
+export const getIncident       = (id: string) => request<IncidentDetail>(`/incidents/${id}`)
+export const getAnalysis       = (incidentId: string) => request<AnalysisReport>(`/incidents/${incidentId}/analysis`)
+export const triggerAnalysis   = (incidentId: string) => request<{ queued: boolean }>(`/incidents/${incidentId}/analyze`, { method: 'POST' })
 export const updateActionStatus = (id: string, executionStatus: ExecutionStatus) =>
   request<{ id: string; executionStatus: ExecutionStatus; executedAt: string | null }>(
     `/actions/${id}/status`,

@@ -6,7 +6,7 @@ import { AnalysisStatusBadge, SeverityBadge, StatusBadge } from '../../component
 import { MermaidChart } from '../../components/MermaidChart'
 import { FiveWhys } from './FiveWhys'
 import { ActionCard } from './ActionCard'
-import { getAnalysis, getIncident } from '../../lib/api'
+import { getAnalysis, getIncident, triggerAnalysis } from '../../lib/api'
 import type { AnalysisReport, IncidentDetail as IIncidentDetail } from '../../types'
 
 function fmt(iso: string) {
@@ -43,10 +43,12 @@ function MetaRow({ label, value }: Readonly<{ label: string; value: string }>) {
 export function IncidentDetail() {
   const { id }    = useParams<{ id: string }>()
   const navigate  = useNavigate()
-  const [incident, setIncident] = useState<IIncidentDetail | null>(null)
-  const [analysis, setAnalysis] = useState<AnalysisReport | null>(null)
-  const [loading, setLoading]   = useState(true)
-  const [missing, setMissing]   = useState(false)
+  const [incident, setIncident]     = useState<IIncidentDetail | null>(null)
+  const [analysis, setAnalysis]     = useState<AnalysisReport | null>(null)
+  const [loading, setLoading]       = useState(true)
+  const [missing, setMissing]       = useState(false)
+  const [triggering, setTriggering] = useState(false)
+  const [triggered, setTriggered]   = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -124,7 +126,28 @@ export function IncidentDetail() {
               )}
             </>
           ) : (
-            <Card className="p-8 text-center text-zinc-600 text-sm">No analysis available yet</Card>
+            <Card className="p-8 text-center space-y-4">
+              <p className="text-zinc-600 text-sm">No analysis available yet</p>
+              {triggered ? (
+                <p className="text-xs text-indigo-400 font-mono">Analysis queued — refresh in ~30s</p>
+              ) : (
+                <button
+                  type="button"
+                  disabled={triggering}
+                  onClick={() => {
+                    if (!id) return
+                    setTriggering(true)
+                    triggerAnalysis(id)
+                      .then(() => setTriggered(true))
+                      .catch(() => {})
+                      .finally(() => setTriggering(false))
+                  }}
+                  className="px-4 py-2 text-xs font-mono bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded transition-colors"
+                >
+                  {triggering ? 'Queuing…' : 'Trigger Analysis'}
+                </button>
+              )}
+            </Card>
           )}
         </div>
 

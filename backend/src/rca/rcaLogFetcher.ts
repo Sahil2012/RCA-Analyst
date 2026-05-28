@@ -38,7 +38,7 @@ export class GcpLogFetcher implements IRcaLogFetcher {
   private buildFilter(params: LogFetchParams): string {
     const parts = [
       'resource.type="k8s_container"',
-      'severity >= WARNING',
+      'severity >= INFO',
       `resource.labels.namespace_name="${params.namespace}"`,
       `resource.labels.container_name="${params.serviceName}"`,
       `timestamp >= "${params.windowStart.toISOString()}"`,

@@ -35,7 +35,10 @@ export class PrismaIncidentRepository implements IIncidentRepository {
       where: {
         serviceName,
         type,
-        status:    'OPEN',
+        // Exclude statuses that represent a fully closed/resolved lifecycle.
+        // Checking only OPEN caused the dedup window to break the moment an
+        // in-flight RCA moved the incident to LOW_CONFIDENCE/INVESTIGATING.
+        status:    { notIn: ['RESOLVED', 'FALSE_POSITIVE'] },
         createdAt: { gte: new Date(Date.now() - windowMs) },
       },
     })

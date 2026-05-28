@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
+import { IAnalysisTrigger } from '../../incidents/incidentInterfaces'
 
-export function incidentRoutes(db: PrismaClient): Router {
+export function incidentRoutes(db: PrismaClient, analysisTrigger?: IAnalysisTrigger): Router {
   const router = Router()
 
   router.get('/', async (req, res) => {
@@ -118,6 +119,36 @@ export function incidentRoutes(db: PrismaClient): Router {
           executedAt:          a.executedAt,
         })),
       })
+    } catch (e) {
+      res.status(500).json({ error: e instanceof Error ? e.message : String(e) })
+    }
+  })
+
+  router.post('/:id/analyze', async (req, res) => {
+    try {
+      if (!analysisTrigger) {
+        return res.status(503).json({ error: 'Analysis trigger not available' })
+      }
+
+      const incident = await db.incident.findUnique({ where: { id: req.params.id } })
+      if (!incident) return res.status(404).json({ error: 'Incident not found' })
+
+      analysisTrigger.analyze({
+        id:          incident.id,
+        serviceName: incident.serviceName,
+        namespace:   incident.namespace,
+        podName:     incident.podName,
+        severity:    incident.severity,
+        type:        incident.type,
+        status:      incident.status,
+        occurrences: incident.occurrences,
+        occurredAt:  incident.occurredAt,
+        createdAt:   incident.createdAt,
+        updatedAt:   incident.updatedAt,
+        resolvedAt:  incident.resolvedAt,
+      })
+
+      res.json({ queued: true })
     } catch (e) {
       res.status(500).json({ error: e instanceof Error ? e.message : String(e) })
     }
