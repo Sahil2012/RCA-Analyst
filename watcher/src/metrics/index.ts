@@ -162,13 +162,13 @@ export class MetricsPoller {
     const anomalies: Anomaly[] = []
 
     const cpu = await this.getCpuUtilization(service, namespace, pod)
-    if (cpu !== null && cpu > 80) {
-      anomalies.push({ service, namespace, pod, type: 'HIGH_CPU' , value: cpu, threshold: 80, timestamp: new Date() })
+    if (cpu !== null && cpu > 20) {
+      anomalies.push({ service, namespace, pod, type: 'HIGH_CPU' , value: cpu, threshold: 20, timestamp: new Date() })
     }
 
     const memory = await this.getMemoryUtilization(service, namespace, pod)
-    if (memory !== null && memory > 85) {
-      anomalies.push({ service, namespace, pod, type: 'HIGH_MEMORY' , value: memory, threshold: 85, timestamp: new Date() })
+    if (memory !== null && memory > 20) {
+      anomalies.push({ service, namespace, pod, type: 'HIGH_MEMORY' , value: memory, threshold: 20, timestamp: new Date() })
     }
 
     return anomalies

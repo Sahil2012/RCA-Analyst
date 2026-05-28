@@ -107,7 +107,7 @@ export class PodPoller {
       const recentRestarts = history.filter((h) => h.timestamp > fiveMinAgo)
       podRestartHistory.set(podKey, recentRestarts)
 
-      if (recentRestarts.length >= 3) {
+      if (recentRestarts.length >= 1) {
         anomalies.push({ service, namespace, pod: pod.name, type: 'POD_RESTART', value: recentRestarts.length, threshold: 3, timestamp: new Date() })
       }
     }

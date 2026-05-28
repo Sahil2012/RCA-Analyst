@@ -37,11 +37,15 @@ export class LogFetcher {
         ? `resource.labels.pod_name="${pod}"`
         : `resource.labels.container_name="${service}"`
 
+      // Match both structured severity labels AND plain-text logs (e.g. "[ERROR]", "exception")
+      // since workload services may log to stdout without structured JSON.
+      const severityFilter = '(severity="ERROR" OR severity="WARNING" OR severity="CRITICAL" OR textPayload=~"(?i)(error|exception|failed|crash|timeout)")'
+
       const filter = [
         'resource.type="k8s_container"',
         `resource.labels.namespace_name="${namespace}"`,
         podFilter,
-        '(severity="ERROR" OR severity="WARNING")',
+        severityFilter,
         `timestamp>="${startTimeStr}"`,
         `timestamp<="${endTimeStr}"`,
       ].join(' AND ')
@@ -72,7 +76,6 @@ export class LogFetcher {
       return []
     }
   }
-
   /**
    * Fetch logs for incident investigation
    * Returns structured log data for analysis
