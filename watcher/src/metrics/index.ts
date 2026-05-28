@@ -24,7 +24,7 @@ export class MetricsPoller {
         resource.type="k8s_container"
         AND resource.labels.pod_name="${pod}"
         AND resource.labels.namespace_name="${namespace}"
-        AND metric.type="kubernetes.io/container/cpu/core_usage_time"
+        AND metric.type="kubernetes.io/container/cpu/limit_utilization"
       `.trim()
 
       const request = {
@@ -55,7 +55,7 @@ export class MetricsPoller {
       if (values.length === 0) return null
 
       const avgValue = values.reduce((a: number, b: number) => a + b, 0) / values.length
-      // Normalize to percentage (assuming 1 core available)
+      // limit_utilization is already a 0-1 ratio — convert to 0-100
       return Math.min(avgValue * 100, 100)
     } catch (error) {
       console.error(`Error fetching CPU for ${pod}:`, error)
