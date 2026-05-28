@@ -7,16 +7,30 @@ import { PrismaIncidentRepository } from './incidentRepository'
 import { IncidentService } from './incidentService'
 import { PubSubMessageQueue } from './pubsubMessageQueue'
 
-export function startIncidentConsumer(): void {
-  const repo        = new PrismaIncidentRepository(prisma)
-  const dedup       = new IncidentDedup(repo)
-  const falsePos    = new IncidentFalsePositive(repo)
-  const rcaService  = buildRcaService()
-  const service     = new IncidentService(dedup, falsePos, repo, rcaService)
-  const queue       = new PubSubMessageQueue(config)
-  const consumer    = new IncidentConsumer(queue, service)
+export function startIncidentConsumer(): () => Promise<void> {
+  const repo       = new PrismaIncidentRepository(prisma)
+  const dedup      = new IncidentDedup(repo)
+  const falsePos   = new IncidentFalsePositive(repo)
+  const rcaService = buildRcaService()
+  const service    = new IncidentService(dedup, falsePos, repo, rcaService)
 
-  consumer.start()
+  // Higher maxMessages = more concurrency = higher throughput for that severity
+  const subscriptions: Array<{ subscriptionName: string; maxMessages: number }> = [
+    { subscriptionName: config.PUBSUB_SUBSCRIPTION_HIGH,   maxMessages: 20 },
+    { subscriptionName: config.PUBSUB_SUBSCRIPTION_MEDIUM, maxMessages: 10 },
+    { subscriptionName: config.PUBSUB_SUBSCRIPTION_LOW,    maxMessages: 5  },
+  ]
+
+  const queues: PubSubMessageQueue[] = []
+
+  for (const { subscriptionName, maxMessages } of subscriptions) {
+    const queue    = new PubSubMessageQueue({ GCP_PROJECT_ID: config.GCP_PROJECT_ID, subscriptionName, maxMessages })
+    const consumer = new IncidentConsumer(queue, service)
+    consumer.start()
+    queues.push(queue)
+  }
+
+  return () => Promise.all(queues.map(q => q.close())).then(() => {})
 }
 
 export type { IncidentEvent } from './incidentTypes'

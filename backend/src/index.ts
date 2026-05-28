@@ -5,36 +5,39 @@ import { startIncidentConsumer } from "./incidents";
 import { startMcpServer } from "./mcp/mcpServer";
 import { startApiServer } from "./api";
 
-let healthServer: Server | undefined;
-let mcpServer:    Server | undefined;
-let apiServer:    Server | undefined;
+let healthServer:    Server | undefined;
+let mcpServer:       Server | undefined;
+let apiServer:       Server | undefined;
+let closeConsumers: (() => Promise<void>) | undefined;
 
 function main() {
-  healthServer = startHealthServer();
-  mcpServer    = startMcpServer(prisma, config.MCP_PORT);
-  apiServer    = startApiServer(prisma, config.API_PORT);
   logger.info("Starting RCA Analyst backend");
-  startIncidentConsumer();
+  healthServer    = startHealthServer();
+  mcpServer       = startMcpServer(prisma, config.MCP_PORT);
+  apiServer       = startApiServer(prisma, config.API_PORT);
+  closeConsumers  = startIncidentConsumer();
 }
 
-async function shutdown(signal: string) {
-  logger.info(`${signal} received — shutting down gracefully`);
-  await Promise.all([
+function shutdown(signal: string): void {
+  logger.info(`${signal} received — shutting down`);
+
+  // Fire-and-forget best-effort cleanup. We do NOT await this —
+  // pubsub.close() uses gRPC and can hang indefinitely, which would
+  // prevent process.exit() from ever being called.
+  void Promise.all([
     new Promise<void>((resolve) => healthServer?.close(() => resolve()) ?? resolve()),
     new Promise<void>((resolve) => mcpServer?.close(() => resolve())    ?? resolve()),
     new Promise<void>((resolve) => apiServer?.close(() => resolve())    ?? resolve()),
-  ]);
-  await prisma.$disconnect();
+    closeConsumers?.() ?? Promise.resolve(),
+  ])
+    .then(() => prisma.$disconnect())
+    .catch(() => { /* best-effort */ })
+
+  // Guaranteed hard exit — always runs regardless of cleanup state.
   process.exit(0);
 }
 
-const handleShutdown = (signal: string) =>
-  shutdown(signal).catch((e) => {
-    logger.error("Error during shutdown", { error: String(e) });
-    process.exit(1);
-  });
-
-process.on("SIGTERM", () => handleShutdown("SIGTERM"));
-process.on("SIGINT", () => handleShutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT",  () => shutdown("SIGINT"));
 
 main();

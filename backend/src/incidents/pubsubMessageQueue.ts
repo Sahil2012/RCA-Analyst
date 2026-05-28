@@ -3,19 +3,21 @@ import { logger } from '../shared/logger'
 import { IMessageQueue, QueueMessageHandler } from '../shared/messageQueue'
 
 interface PubSubConfig {
-  GCP_PROJECT_ID:      string
-  PUBSUB_SUBSCRIPTION: string
+  GCP_PROJECT_ID:   string
+  subscriptionName: string
+  maxMessages?:     number
 }
 
 export class PubSubMessageQueue implements IMessageQueue {
+  private readonly pubsub:       PubSub
   private readonly subscription: Subscription
   private subscribed = false
 
   constructor(cfg: PubSubConfig) {
-    const pubsub = new PubSub({ projectId: cfg.GCP_PROJECT_ID })
+    this.pubsub = new PubSub({ projectId: cfg.GCP_PROJECT_ID })
 
-    this.subscription = pubsub.subscription(cfg.PUBSUB_SUBSCRIPTION, {
-      flowControl: { maxMessages: 10 },
+    this.subscription = this.pubsub.subscription(cfg.subscriptionName, {
+      flowControl: { maxMessages: cfg.maxMessages ?? 10 },
     })
   }
 
@@ -50,5 +52,11 @@ export class PubSubMessageQueue implements IMessageQueue {
     })
 
     logger.info('PubSub queue subscribed', { subscription: this.subscription.name })
+  }
+
+  async close(): Promise<void> {
+    await this.subscription.close()
+    await this.pubsub.close()
+    logger.info('PubSub queue closed', { subscription: this.subscription.name })
   }
 }

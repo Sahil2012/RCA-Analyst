@@ -3,4 +3,5 @@ export type QueueMessageHandler  = (payload: unknown) => Promise<QueueHandlerOut
 
 export interface IMessageQueue {
   subscribe(handler: QueueMessageHandler): void
+  close(): Promise<void>
 }
