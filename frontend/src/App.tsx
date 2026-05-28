@@ -4,13 +4,13 @@ import { IncidentDetail } from './features/incidents/IncidentDetail'
 
 function Nav() {
   return (
-    <header className="border-b border-[#1e1e2a] px-4 sm:px-6 h-14 flex items-center justify-between">
-      <a href="/" className="flex items-center gap-2.5 group">
-        <div className="size-6 rounded bg-violet-500/20 border border-violet-500/30 flex items-center justify-center">
-          <div className="size-2 rounded-sm bg-violet-400" />
-        </div>
-        <span className="text-[15px] font-semibold text-zinc-100 tracking-tight">
-          RCA <span className="text-violet-400 font-normal">Analyst</span>
+    <header className="bg-[#07091f] border-b border-(--border) px-4 sm:px-8 h-14 flex items-center justify-between shrink-0">
+      <a href="/" className="flex flex-col leading-none">
+        <span className="text-[13px] font-bold tracking-[0.15em] uppercase text-[#dde4f0]">
+          RCA Analyst
+        </span>
+        <span className="text-[9px] tracking-[0.2em] uppercase text-(--accent) font-mono mt-0.5">
+          Incident Intelligence
         </span>
       </a>
       <span className="text-xs font-mono hidden sm:block ai-shimmer">AI-powered root cause analysis</span>

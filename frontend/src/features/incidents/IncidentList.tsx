@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 import { Sparkles } from 'lucide-react'
 import { SeverityBadge, StatusBadge } from '../../components/Badge'
+import { Pagination } from '../../components/Pagination'
 import type { IncidentStatus, IncidentSummary, Severity } from '../../types'
 
-const severityBar: Record<Severity, string> = {
+const severityAccent: Record<Severity, string> = {
   CRITICAL: 'border-l-2 border-l-red-500',
   HIGH:     'border-l-2 border-l-orange-500',
   MEDIUM:   'border-l-2 border-l-yellow-500',
@@ -24,18 +25,24 @@ const TABS: Array<{ label: string; value: IncidentStatus | 'ALL' }> = [
   { label: 'Resolved',      value: 'RESOLVED' },
 ]
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+function formatRelative(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-const SKELETON_WIDTHS = [60, 45, 55, 30, 40, 20, 35]
+const SKELETON_COLS = [55, 20, 22, 15]
 
 function SkeletonRow() {
   return (
-    <tr>
-      {SKELETON_WIDTHS.map(w => (
-        <td key={w} className="px-4 py-3">
+    <tr className="border-b border-(--border)">
+      {SKELETON_COLS.map(w => (
+        <td key={w} className="px-4 py-4">
           <div className="h-3 bg-zinc-800 rounded animate-pulse" style={{ width: `${w}%` }} />
+          {w === 55 && <div className="h-2 bg-zinc-800/60 rounded animate-pulse mt-2" style={{ width: '40%' }} />}
         </td>
       ))}
     </tr>
@@ -47,66 +54,91 @@ interface Props {
   loading: boolean
   activeTab: IncidentStatus | 'ALL'
   onTabChange: (tab: IncidentStatus | 'ALL') => void
+  page: number
+  pageSize: number
+  total: number
+  onPageChange: (page: number) => void
 }
 
-export function IncidentList({ incidents, loading, activeTab, onTabChange }: Readonly<Props>) {
+export function IncidentList({ incidents, loading, activeTab, onTabChange, page, pageSize, total, onPageChange }: Readonly<Props>) {
   const navigate = useNavigate()
 
   function renderRows() {
     if (loading) return [1,2,3,4,5].map(n => <SkeletonRow key={n} />)
     if (incidents.length === 0) return (
-      <tr><td colSpan={7} className="px-4 py-10 text-center text-zinc-600 text-sm">No incidents found</td></tr>
+      <tr>
+        <td colSpan={4} className="px-4 py-14 text-center text-zinc-600 text-sm">
+          No incidents found
+        </td>
+      </tr>
     )
     return incidents.map((inc, idx) => (
-      <tr key={inc.id} onClick={() => navigate(`/incidents/${inc.id}`)}
-        className={`cursor-pointer transition-colors duration-150 hover:bg-violet-500/5 row-enter ${severityRowTint[inc.severity]}`}
+      <tr
+        key={inc.id}
+        onClick={() => navigate(`/incidents/${inc.id}`)}
+        className={`cursor-pointer border-b border-(--border) transition-colors duration-150 hover:bg-blue-500/4 row-enter ${severityRowTint[inc.severity]}`}
         style={{ animationDelay: `${idx * 35}ms` }}
       >
-        <td className={`px-4 py-3.5 text-[15px] font-semibold text-zinc-100 ${severityBar[inc.severity]}`}>
-          <span className="flex items-center gap-1.5">
-            {inc.serviceName}
+        <td className={`px-4 py-4 ${severityAccent[inc.severity]}`}>
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-[15px] font-semibold text-zinc-100 leading-none">{inc.serviceName}</span>
             {inc.analysisCount > 0 && <Sparkles size={11} className="text-violet-400/60 shrink-0" />}
-          </span>
+          </div>
+          <div className="text-[11px] font-mono text-zinc-600 mt-1">
+            {inc.namespace}<span className="mx-1.5 text-zinc-700">·</span>{inc.type.replaceAll('_', ' ')}
+          </div>
         </td>
-        <td className="px-4 py-3.5 text-zinc-500 font-mono text-[11px]">{inc.namespace}</td>
-        <td className="px-4 py-3.5 text-zinc-500 font-mono text-[11px]">{inc.type.replaceAll('_', ' ')}</td>
-        <td className="px-4 py-3.5"><SeverityBadge severity={inc.severity} /></td>
-        <td className="px-4 py-3.5"><StatusBadge status={inc.status} /></td>
-        <td className="px-4 py-3.5 text-zinc-400 tabular-nums text-sm font-mono">{inc.occurrences}×</td>
-        <td className="px-4 py-3.5 text-zinc-600 text-[11px] tabular-nums font-mono">{formatTime(inc.occurredAt)}</td>
+        <td className="px-4 py-4 whitespace-nowrap">
+          <SeverityBadge severity={inc.severity} />
+        </td>
+        <td className="px-4 py-4 whitespace-nowrap">
+          <StatusBadge status={inc.status} />
+        </td>
+        <td className="px-4 py-4 text-right">
+          <span className="text-zinc-300 font-mono text-sm tabular-nums">{inc.occurrences}×</span>
+          <div className="text-[11px] font-mono text-zinc-600 mt-0.5">{formatRelative(inc.occurredAt)}</div>
+        </td>
       </tr>
     ))
   }
 
   return (
-    <div className="bg-[#111116] border border-[#1e1e2a] rounded-lg overflow-hidden">
-      <div className="flex border-b border-[#1e1e2a] px-4">
-        {TABS.map(tab => (
-          <button key={tab.value} type="button" onClick={() => onTabChange(tab.value)}
-            className={`py-3 px-3 text-xs font-mono uppercase tracking-widest transition-colors border-b-2 -mb-px ${
-              activeTab === tab.value
-                ? 'text-violet-400 border-violet-500'
-                : 'text-zinc-600 border-transparent hover:text-zinc-400'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex gap-1">
+          {TABS.map(tab => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => onTabChange(tab.value)}
+              className={`px-3 py-1.5 text-xs font-mono uppercase tracking-widest rounded transition-colors ${
+                activeTab === tab.value
+                  ? 'bg-zinc-800 text-zinc-100'
+                  : 'text-zinc-600 hover:text-zinc-400'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+
+      <div className="border border-(--border) rounded-lg overflow-hidden">
+        <table className="w-full">
           <thead>
-            <tr className="text-left border-b border-[#1e1e2a]">
-              {['Service','Namespace','Type','Severity','Status','Hits','Time'].map(h => (
-                <th key={h} className="px-4 py-3 text-[10px] font-mono uppercase tracking-widest text-zinc-600 font-medium">{h}</th>
-              ))}
+            <tr className="border-b border-(--border) bg-[#07091f]">
+              <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-widest text-zinc-600 font-medium w-full">Service</th>
+              <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-widest text-zinc-600 font-medium whitespace-nowrap">Severity</th>
+              <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-widest text-zinc-600 font-medium whitespace-nowrap">Status</th>
+              <th className="px-4 py-2.5 text-right text-[10px] font-mono uppercase tracking-widest text-zinc-600 font-medium whitespace-nowrap">Activity</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#1e1e2a]">
+          <tbody>
             {renderRows()}
           </tbody>
         </table>
       </div>
+      <Pagination page={page} pageSize={pageSize} total={total} onChange={onPageChange} />
     </div>
   )
 }

@@ -13,6 +13,18 @@ export function startHealthServer(): Server {
     res.end()
   })
 
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      logger.error(
+        `Port ${config.PORT} is already in use — a previous backend process may still be running. ` +
+        `Run: lsof -ti :${config.PORT} | xargs kill -9`,
+        { port: config.PORT },
+      )
+      process.exit(1)
+    }
+    throw err
+  })
+
   server.listen(config.PORT, () => {
     logger.info('Health server listening', { port: config.PORT })
   })

@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Activity, AlertCircle, Search, Zap } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 
 function useCountUp(target: number, duration = 700) {
   const [count, setCount] = useState(0)
@@ -9,8 +7,7 @@ function useCountUp(target: number, duration = 700) {
     const start = Date.now()
     const tick = () => {
       const progress = Math.min((Date.now() - start) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      setCount(Math.round(target * eased))
+      setCount(Math.round(target * (1 - Math.pow(1 - progress, 3))))
       if (progress < 1) requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
@@ -18,38 +15,41 @@ function useCountUp(target: number, duration = 700) {
   return count
 }
 
-interface Tile {
-  label: string
-  value: number
-  icon: LucideIcon
-  bar: string
-  iconColor: string
-  glow?: boolean
-}
-
-function StatTile({ label, value, icon: Icon, bar, iconColor, glow }: Readonly<Tile>) {
-  const displayed = useCountUp(value)
-  return (
-    <div className={`relative bg-[#111116] border border-[#1e1e2a] rounded-lg px-5 py-4 flex flex-col gap-1.5 overflow-hidden ${glow ? 'glow-violet' : ''}`}>
-      <div className={`absolute inset-x-0 top-0 h-px ${bar}`} />
-      <div className="flex items-start justify-between">
-        <span className="text-4xl font-bold text-white tabular-nums leading-none tracking-tight">{displayed}</span>
-        <Icon size={14} className={`mt-1 ${iconColor}`} />
-      </div>
-      <span className="text-[11px] text-zinc-500 uppercase tracking-widest font-mono">{label}</span>
-    </div>
-  )
-}
-
 interface Props { total: number; open: number; investigating: number; analysed: number }
 
 export function StatsStrip({ total, open, investigating, analysed }: Readonly<Props>) {
+  const t = useCountUp(total)
+  const o = useCountUp(open)
+  const inv = useCountUp(investigating)
+  const a = useCountUp(analysed)
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-      <StatTile label="Total"         value={total}        icon={Activity}    bar="bg-zinc-700"   iconColor="text-zinc-500" />
-      <StatTile label="Open"          value={open}         icon={AlertCircle} bar="bg-red-500"    iconColor="text-red-400" />
-      <StatTile label="Investigating" value={investigating} icon={Search}      bar="bg-orange-500" iconColor="text-orange-400" />
-      <StatTile label="Analyses Run"  value={analysed}     icon={Zap}         bar="bg-violet-500" iconColor="text-violet-400" glow />
+    <div className="flex items-center gap-8 mb-8 pb-6 border-b border-(--border) flex-wrap">
+      <Stat value={t}   label="total incidents" />
+      <Sep />
+      <Stat value={o}   label="open"          dot="bg-red-500" />
+      <Sep />
+      <Stat value={inv} label="investigating"  dot="bg-blue-400" />
+      <Sep />
+      <Stat value={a}   label="AI analysed"   dot="bg-amber-400" gold />
     </div>
   )
+}
+
+function Stat({ value, label, dot, gold }: Readonly<{ value: number; label: string; dot?: string; gold?: boolean }>) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <span className={`text-4xl font-light tabular-nums tracking-tight ${gold ? 'text-(--accent) glow-gold' : 'text-[#dde4f0]'}`}>
+        {value}
+      </span>
+      <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-[#3d4f6a]">
+        {dot && <span className={`size-1.5 rounded-full ${dot} ${gold ? 'animate-pulse' : ''} shrink-0`} />}
+        {label}
+      </span>
+    </div>
+  )
+}
+
+function Sep() {
+  return <div className="h-5 w-px bg-[#1e2d45] shrink-0" />
 }
