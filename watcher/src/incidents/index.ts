@@ -3,12 +3,14 @@ dotenv.config()
 console.log(process.env.GOOGLE_APPLICATION_CREDENTIALS)
 import { PubSub } from '@google-cloud/pubsub'
 import { config } from '../shared/config'
+import { randomUUID } from 'crypto'
 
 import {
   IncidentEvent,
   Anomaly,
   IncidentRules,
   determineSeverity,
+  mapAnomalyToIncidentSource,
 } from '../shared/index'
 
 const pubSubClient = new PubSub({
@@ -82,7 +84,7 @@ export class IncidentEngine {
   }
 
   /**
-   * Convert anomaly to incident event
+   * Convert anomaly to RCA incident event
    */
   private anomalyToIncident(anomaly: Anomaly): IncidentEvent {
     const key = this.generateIncidentKey(
@@ -103,17 +105,19 @@ export class IncidentEngine {
     })
 
     const severity = determineSeverity(anomaly.type, anomaly.value, anomaly.threshold)
+    const source = mapAnomalyToIncidentSource(anomaly.type)
+    const correlationId = randomUUID()
 
     return {
-      service: anomaly.service,
+      serviceName: anomaly.service,
       namespace: anomaly.namespace,
-      pod: anomaly.pod,
-      type: anomaly.type,
+      podName: anomaly.pod,
+      type: anomaly.type, // Keep original AnomalyType
       severity,
       occurrences,
-      timestamp: anomaly.timestamp,
-      value: anomaly.value,
-      threshold: anomaly.threshold,
+      source,
+      correlationId,
+      occurredAt: anomaly.timestamp.toISOString(),
     }
   }
 
@@ -131,14 +135,11 @@ export class IncidentEngine {
 
       const incident = this.anomalyToIncident(anomaly)
 
-      const messageData = JSON.stringify({
-        ...incident,
-        timestamp: incident.timestamp.toISOString(),
-      })
+      const messageData = JSON.stringify(incident)
 
       const messageId = await this.topic.publish(Buffer.from(messageData))
 
-      console.log(`Incident published: ${incident.service}/${incident.pod} - ${incident.type}`)
+      console.log(`Incident published: ${incident.serviceName}/${incident.podName} - ${incident.type}`)
 
       return messageId
     } catch (error) {

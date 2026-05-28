@@ -11,19 +11,23 @@ export const AnomalyTypeSchema = z.enum([
 
 export type AnomalyType = z.infer<typeof AnomalyTypeSchema>
 
+export const IncidentSourceSchema = z.enum(['GCP_MONITORING', 'K8S_MONITORING', 'LOG_ANALYSIS'])
+export type IncidentSource = z.infer<typeof IncidentSourceSchema>
+
 export const SeveritySchema = z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
 export type Severity = z.infer<typeof SeveritySchema>
 
+// RCA Pipeline incident schema - aligned with backend expectations
 export const IncidentEventSchema = z.object({
-  service: z.string(),
-  namespace: z.string().default('default'),
-  pod: z.string(),
-  type: AnomalyTypeSchema,
+  serviceName: z.string().min(1),
+  namespace: z.string().min(1),
+  podName: z.string().optional(),
   severity: SeveritySchema,
-  occurrences: z.number().positive(),
-  timestamp: z.date(),
-  value: z.number().optional(),
-  threshold: z.number().optional(),
+  type: AnomalyTypeSchema, // Use AnomalyType directly (HIGH_CPU, HIGH_MEMORY, HIGH_ERROR_RATE, POD_CRASH, POD_RESTART)
+  occurrences: z.number().int().positive(),
+  source: IncidentSourceSchema.default('GCP_MONITORING'),
+  correlationId: z.string().optional(),
+  occurredAt: z.string().datetime(),
 })
 
 export type IncidentEvent = z.infer<typeof IncidentEventSchema>
@@ -77,6 +81,21 @@ export const IncidentRules = {
     duration: 300000, // 5 minutes
     severity: 'MEDIUM' as const,
   },
+}
+
+// Map AnomalyType to incident source
+export const mapAnomalyToIncidentSource = (anomalyType: AnomalyType): IncidentSource => {
+  switch (anomalyType) {
+    case 'HIGH_CPU':
+    case 'HIGH_MEMORY':
+    case 'HIGH_ERROR_RATE':
+      return 'GCP_MONITORING'
+    case 'POD_CRASH':
+    case 'POD_RESTART':
+      return 'K8S_MONITORING'
+    default:
+      return 'GCP_MONITORING'
+  }
 }
 
 // Determine severity based on anomaly type and value
