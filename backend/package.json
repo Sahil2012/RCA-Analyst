@@ -21,6 +21,7 @@
     "@google-cloud/logging": "^11.0.0",
     "@google-cloud/monitoring": "^4.0.0",
     "@google-cloud/pubsub": "^4.9.0",
+    "@google/generative-ai": "^0.24.1",
     "@langchain/anthropic": "^0.3.0",
     "@langchain/core": "^0.3.0",
     "@modelcontextprotocol/sdk": "^1.29.0",

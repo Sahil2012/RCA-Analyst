@@ -11,13 +11,27 @@ const ConfigSchema = z.object({
   SUPABASE_ANON_KEY:      z.string().min(1),
 
   // GCP
-  GCP_PROJECT_ID:         z.string().min(1),
-  PUBSUB_SUBSCRIPTION:    z.string().min(1),
+  GCP_PROJECT_ID:              z.string().min(1),
+  PUBSUB_SUBSCRIPTION_HIGH:    z.string().min(1),
+  PUBSUB_SUBSCRIPTION_MEDIUM:  z.string().min(1),
+  PUBSUB_SUBSCRIPTION_LOW:     z.string().min(1),
 
-  // Anthropic
-  ANTHROPIC_API_KEY:           z.string().min(1),
+  // LLM provider — set to 'gemini' or 'anthropic'
+  LLM_PROVIDER:                z.enum(['anthropic', 'gemini']).default('anthropic'),
+
+  // Anthropic (required when LLM_PROVIDER=anthropic)
+  ANTHROPIC_API_KEY:           z.string().optional(),
   ANTHROPIC_MODEL:             z.string().default('claude-sonnet-4-6'),
+
+  // Gemini (required when LLM_PROVIDER=gemini)
+  GEMINI_API_KEY:              z.string().optional(),
+  GEMINI_MODEL:                z.string().default('gemini-2.5-flash'),
+
   RCA_LLM_MAX_TOKENS:          z.coerce.number().default(2048),
+
+  // Token optimizer
+  RCA_LOG_TOKEN_BUDGET:        z.coerce.number().default(6000),  // tokens reserved for logs in the prompt
+  RCA_LOG_MAX_MESSAGE_CHARS:   z.coerce.number().default(300),   // individual log message cap before truncation
 
   // RCA pipeline tuning
   RCA_MAX_ATTEMPTS:            z.coerce.number().int().min(1).default(3),
