@@ -58,13 +58,27 @@ export class RcaService implements IAnalysisTrigger {
     for (let attempt = 1; attempt <= this.options.maxAttempts; attempt++) {
       logger.info('RCA attempt started', { ...meta, attempt })
 
+      logger.info('RCA analyser: invoking LLM', { ...meta, attempt, hasPriorFeedback: !!lastJudgeFeedback })
       const analysisResult = await this.analyser.analyse(incident, context, lastJudgeFeedback)
       if (!analysisResult.ok) {
         logger.warn('Analyser failed', { ...meta, attempt, error: analysisResult.error.message })
         continue
       }
       lastAnalysis = analysisResult.data
+      logger.info('RCA analyser: analysis complete', {
+        ...meta,
+        attempt,
+        rootCause:        lastAnalysis.rootCause.slice(0, 120),
+        confidenceScore:  lastAnalysis.confidenceScore,
+        remediationCount: lastAnalysis.remediationActions.length,
+      })
+      logger.info('Symptom diagram: Mermaid flowchart generated', {
+        ...meta,
+        attempt,
+        nodes: (lastAnalysis.symptomDiagram.match(/-->/g) ?? []).length + 1,
+      })
 
+      logger.info('RCA judge: evaluating analysis', { ...meta, attempt })
       const judgeResult = await this.judge.score(incident, lastAnalysis)
       if (!judgeResult.ok) {
         logger.warn('Judge failed', { ...meta, attempt, error: judgeResult.error.message })
@@ -73,6 +87,12 @@ export class RcaService implements IAnalysisTrigger {
 
       lastJudgeScore    = judgeResult.data.judgeScore
       lastJudgeFeedback = judgeResult.data.judgeFeedback
+      logger.info('RCA judge: scoring complete', {
+        ...meta,
+        attempt,
+        judgeScore: lastJudgeScore,
+        feedback:   lastJudgeFeedback?.slice(0, 150),
+      })
 
       if (lastJudgeScore >= this.options.judgePassThreshold) {
         await this.repo.persistPassed({
@@ -130,6 +150,13 @@ export class RcaService implements IAnalysisTrigger {
       windowEnd,
     }
 
+    logger.info('Context engine: fetching logs and metrics', {
+      incidentId: incident.id,
+      service:    incident.serviceName,
+      windowStart: windowStart.toISOString(),
+      windowEnd:   windowEnd.toISOString(),
+    })
+
     const [logsResult, metricsResult] = await Promise.all([
       this.logFetcher.fetch(logParams),
       this.metricsFetcher.fetch(metricParams),
@@ -149,8 +176,21 @@ export class RcaService implements IAnalysisTrigger {
     }
 
     const rawLogs  = logsResult.ok ? logsResult.data : []
+    logger.info('Context engine: raw data fetched', {
+      incidentId:       incident.id,
+      rawLogCount:      rawLogs.length,
+      metricsAvailable: metricsResult.ok,
+    })
+
     const sanitized = this.sanitizer.sanitize(rawLogs)
-    const metrics   = metricsResult.ok ? metricsResult.data : undefined
+    logger.info('Token optimizer: log sanitization complete', {
+      incidentId:    incident.id,
+      keptEntries:   sanitized.entries.length,
+      droppedEntries: sanitized.totalDropped,
+      tokenEstimate: sanitized.tokenEstimate,
+    })
+
+    const metrics = metricsResult.ok ? metricsResult.data : undefined
 
     return { logs: sanitized, metrics }
   }

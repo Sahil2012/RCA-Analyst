@@ -1,10 +1,17 @@
 import { $Enums, PrismaClient } from '@prisma/client'
+import { logger } from '../shared/logger'
 import { IRcaRepository, PersistLowConfidenceParams, PersistPassedParams } from './rcaInterfaces'
 
 export class PrismaRcaRepository implements IRcaRepository {
   constructor(private readonly db: PrismaClient) {}
 
   async persistPassed(params: PersistPassedParams): Promise<void> {
+    logger.info('DB: persisting passed RCA analysis', {
+      incidentId:  params.incidentId,
+      actionCount: params.actions.length,
+      judgeScore:  params.judgeScore,
+    })
+
     await this.db.$transaction(async (tx) => {
       const analysis = await tx.incidentAnalysis.create({
         data: {
@@ -21,6 +28,7 @@ export class PrismaRcaRepository implements IRcaRepository {
           status:          $Enums.AnalysisStatus.PASSED,
         },
       })
+      logger.info('DB: analysis record created', { incidentId: params.incidentId, analysisId: analysis.id, status: 'PASSED' })
 
       await tx.remediationAction.createMany({
         data: params.actions.map(action => ({
@@ -37,15 +45,23 @@ export class PrismaRcaRepository implements IRcaRepository {
           confidenceLevel:     action.confidenceLevel,
         })),
       })
+      logger.info('DB: remediation actions inserted', { incidentId: params.incidentId, analysisId: analysis.id, count: params.actions.length })
 
       await tx.incident.update({
         where: { id: params.incidentId },
         data:  { status: $Enums.IncidentStatus.INVESTIGATING },
       })
+      logger.info('DB: incident status → INVESTIGATING', { incidentId: params.incidentId })
     })
   }
 
   async persistLowConfidence(params: PersistLowConfidenceParams): Promise<void> {
+    logger.info('DB: persisting low confidence RCA analysis', {
+      incidentId: params.incidentId,
+      attempts:   params.attempts,
+      judgeScore: params.judgeScore,
+    })
+
     await this.db.$transaction(async (tx) => {
       await tx.incidentAnalysis.create({
         data: {
@@ -67,6 +83,7 @@ export class PrismaRcaRepository implements IRcaRepository {
         where: { id: params.incidentId },
         data:  { status: $Enums.IncidentStatus.LOW_CONFIDENCE },
       })
+      logger.info('DB: incident status → LOW_CONFIDENCE', { incidentId: params.incidentId })
     })
   }
 }

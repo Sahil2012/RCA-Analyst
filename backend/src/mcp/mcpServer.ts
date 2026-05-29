@@ -27,6 +27,7 @@ export function startMcpServer(db: PrismaClient, port: number): Server {
     async (args: Record<string, unknown>) => {
       const limit  = Math.min(Math.max(Number(args['limit']) || 10, 1), 50)
       const status = (args['status'] as string) || undefined
+      logger.info('MCP: list_incidents called', { status: status ?? 'ALL', limit })
 
       const incidents = await db.incident.findMany({
         where:   status ? { status: status as never } : undefined,
@@ -71,6 +72,8 @@ export function startMcpServer(db: PrismaClient, port: number): Server {
     } as any,
     async (args: Record<string, unknown>) => {
       const incidentId = args['incidentId'] as string
+      logger.info('MCP: get_incident_analysis called', { incidentId })
+
       const incident = await db.incident.findUnique({
         where:   { id: incidentId },
         include: {
@@ -132,6 +135,7 @@ export function startMcpServer(db: PrismaClient, port: number): Server {
     async (args: Record<string, unknown>) => {
       const status = ((args['executionStatus'] as string) || 'PENDING') as never
       const limit  = Math.min(Math.max(Number(args['limit']) || 20, 1), 50)
+      logger.info('MCP: list_remediation_actions called', { executionStatus: status, limit })
 
       const actions = await db.remediationAction.findMany({
         where:   { executionStatus: status },
@@ -178,7 +182,9 @@ export function startMcpServer(db: PrismaClient, port: number): Server {
     async (args: Record<string, unknown>) => {
       const serviceName = args['serviceName'] as string
       const days        = Math.min(Math.max(Number(args['limitDays']) || 7, 1), 30)
-      const since       = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+      logger.info('MCP: get_service_health called', { serviceName, limitDays: days })
+
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
 
       const incidents = await db.incident.findMany({
         where:   { serviceName, occurredAt: { gte: since } },

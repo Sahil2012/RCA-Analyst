@@ -10,6 +10,12 @@ export class GcpLogFetcher implements IRcaLogFetcher {
   ) {}
 
   async fetch(params: LogFetchParams): Promise<Result<RawLog[]>> {
+    logger.info('Context engine: querying GCP logs', {
+      service:     params.serviceName,
+      windowStart: params.windowStart.toISOString(),
+      windowEnd:   params.windowEnd.toISOString(),
+    })
+
     try {
       const [entries] = await this.logging.getEntries({
         filter:   this.buildFilter(params),
@@ -26,6 +32,12 @@ export class GcpLogFetcher implements IRcaLogFetcher {
         })
         if (parsed.success) logs.push(parsed.data)
       }
+
+      logger.info('Context engine: GCP logs fetched', {
+        service:     params.serviceName,
+        entryCount:  entries.length,
+        parsedCount: logs.length,
+      })
 
       return ok(logs)
     } catch (e) {
